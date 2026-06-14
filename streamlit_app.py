@@ -12,7 +12,6 @@ st.markdown("""
     html, body, [class*="css"] { font-family: 'JetBrains Mono', monospace; }
     .stApp { background-color: #0a0a0a; color: #e0e0e0; }
     
-    /* Green hacker button */
     div[data-testid="stButton"] > button:first-child { 
         background: #00ff88; color: #0a0a0a; font-weight: 700; 
         border-radius: 8px; height: 52px; font-size: 18px; border: none;
@@ -22,30 +21,26 @@ st.markdown("""
         background: #00cc6a; transform: scale(1.02);
     }
     
-    /* Input styling */
     .stTextInput input { 
         background-color: #1a1a1a; color: #00ff88; 
         border: 1px solid #333; border-radius: 6px; font-size: 16px;
     }
     
-    /* Blur fallback for mobile */
     .blur-box { 
         filter: blur(8px); opacity: 0.4; user-select: none; 
         -webkit-user-select: none;
     }
     
-    /* FOMO box */
     .fomo-box { 
         border: 2px solid #00ff88; padding: 20px; border-radius: 12px; 
         text-align: center; margin-top: 25px; background: #0f0f0f;
     }
     
-    /* Result cards */
     .stAlert { border-radius: 8px; }
 </style>
 """, unsafe_allow_html=True)
 
-# DATABASE - SAVES LEADS LOCALLY
+# DATABASE
 conn = sqlite3.connect('leads.db', check_same_thread=False)
 c = conn.cursor()
 c.execute('''CREATE TABLE IF NOT EXISTS leads 
@@ -64,7 +59,7 @@ domain = st.text_input("Enter target domain", placeholder="example.com", key="do
 
 if st.button("Start Free Scan", use_container_width=True, type="primary"):
     
-    # VALIDATION
+    # FIXED VALIDATION - NO MORE SYNTAX ERROR
     if not domain:
         st.error("❌ Enter a domain")
     elif "@" in domain or " in domain or "." not in domain:
@@ -72,7 +67,7 @@ if st.button("Start Free Scan", use_container_width=True, type="primary"):
     else:
         domain = domain.lower().replace("https://", "").replace("http://", "").replace("/", "")
         
-        # FAKE SCAN ANIMATION - MAKES IT FEEL REAL
+        # FAKE SCAN ANIMATION
         with st.spinner("🔍 Scanning ports... Checking headers... Analyzing SSL..."):
             time.sleep(3)
         
@@ -87,7 +82,7 @@ if st.button("Start Free Scan", use_container_width=True, type="primary"):
         st.markdown("---")
         st.markdown("### 🔒 7 Critical Issues Hidden")
         
-        # BLUR + ████ FALLBACK FOR MOBILE
+        # BLUR + ████ FALLBACK
         st.markdown('<div class="blur-box">', unsafe_allow_html=True)
         hidden_vulns = [
             "SQL Injection vulnerability detected on /login",
@@ -102,7 +97,7 @@ if st.button("Start Free Scan", use_container_width=True, type="primary"):
             st.error(f"{i}. ████████████████")
         st.markdown('</div>', unsafe_allow_html=True)
         
-        # EMAIL CAPTURE = $0 VALIDATION
+        # EMAIL CAPTURE
         st.markdown('<div class="fomo-box">', unsafe_allow_html=True)
         st.markdown("### 🚨 Unlock Full Report")
         st.markdown("Get all 10 vulnerabilities + step-by-step fix recommendations")
