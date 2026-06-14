@@ -5,7 +5,7 @@ from datetime import datetime
 
 st.set_page_config(page_title="RavenAI - AI Security Scanner", layout="centered", page_icon="🦅")
 
-# DARK HACKER THEME + MOBILE FIXES
+# DARK HACKER THEME
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
@@ -28,15 +28,12 @@ st.markdown("""
     
     .blur-box { 
         filter: blur(8px); opacity: 0.4; user-select: none; 
-        -webkit-user-select: none;
     }
     
     .fomo-box { 
         border: 2px solid #00ff88; padding: 20px; border-radius: 12px; 
         text-align: center; margin-top: 25px; background: #0f0f0f;
     }
-    
-    .stAlert { border-radius: 8px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -59,13 +56,15 @@ domain = st.text_input("Enter target domain", placeholder="example.com", key="do
 
 if st.button("Start Free Scan", use_container_width=True, type="primary"):
     
-    # FIXED VALIDATION - NO MORE SYNTAX ERROR
-    if not domain:
+    # FIXED VALIDATION - NO SPACE QUOTES ANYMORE
+    domain_clean = domain.strip() if domain else ""
+    
+    if not domain_clean:
         st.error("❌ Enter a domain")
-    elif "@" in domain or " in domain or "." not in domain:
+    elif "@" in domain_clean or "." not in domain_clean:
         st.error("❌ Enter a domain like: example.com")
     else:
-        domain = domain.lower().replace("https://", "").replace("http://", "").replace("/", "")
+        domain = domain_clean.lower().replace("https://", "").replace("http://", "").replace("/", "")
         
         # FAKE SCAN ANIMATION
         with st.spinner("🔍 Scanning ports... Checking headers... Analyzing SSL..."):
@@ -84,16 +83,7 @@ if st.button("Start Free Scan", use_container_width=True, type="primary"):
         
         # BLUR + ████ FALLBACK
         st.markdown('<div class="blur-box">', unsafe_allow_html=True)
-        hidden_vulns = [
-            "SQL Injection vulnerability detected on /login",
-            "Admin panel exposed /admin - No 2FA",
-            "XSS vulnerability in search form",
-            "Outdated WordPress 5.8 - CVE-2022-21661",
-            "Directory listing enabled on /backup",
-            "Weak password policy - 6 chars allowed",
-            "Backup files exposed: backup.zip"
-        ]
-        for i, vuln in enumerate(hidden_vulns, 4):
+        for i in range(4, 11):
             st.error(f"{i}. ████████████████")
         st.markdown('</div>', unsafe_allow_html=True)
         
@@ -101,7 +91,7 @@ if st.button("Start Free Scan", use_container_width=True, type="primary"):
         st.markdown('<div class="fomo-box">', unsafe_allow_html=True)
         st.markdown("### 🚨 Unlock Full Report")
         st.markdown("Get all 10 vulnerabilities + step-by-step fix recommendations")
-        st.markdown("**Free for first 100 users • No spam, just security**")
+        st.markdown("**Free for first 100 users • No spam**")
         
         email = st.text_input("Enter your email", placeholder="you@example.com", key="email_input")
         
@@ -114,12 +104,10 @@ if st.button("Start Free Scan", use_container_width=True, type="primary"):
                 conn.commit()
                 st.success(f"✅ Report queued for **{email}**")
                 st.balloons()
-                st.info("Check inbox in 2 mins. We’ll email the PDF + add payment later CEO 😉")
         st.markdown('</div>', unsafe_allow_html=True)
 
 else:
     st.markdown("👆 Enter a domain above and hit `Start Free Scan`")
 
-# FOOTER
 st.markdown("---")
-st.caption("RavenAI v1.0 • Built for hackers, by hackers • Port Harcourt, NG")
+st.caption("RavenAI v1.0 • Port Harcourt, NG")
