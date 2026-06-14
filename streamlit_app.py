@@ -1,77 +1,78 @@
 import streamlit as st
-import pandas as pd
-from datetime import datetime
 import requests
-import json
 import time
+from datetime import datetime
 
-st.set_page_config(page_title="RavenAI V3.2", layout="wide")
+st.set_page_config(page_title="RavenAI V3.2 - Live Dashboard", page_icon="🛡️", layout="wide")
 
-# TELEGRAM ALERT FUNCTION
+st.title("🛡️ RavenAI V3.2 - Live Dashboard")
+st.caption("Honeypot Security System")
+
+# DEBUG TELEGRAM FUNCTION - SHOWS ERRORS ON PAGE
 def send_telegram(message):
     token = st.secrets.get("TELEGRAM_TOKEN", "")
     chat_id = st.secrets.get("TELEGRAM_CHAT_ID", "")
-    if token and chat_id:
-        url = f"https://api.github.com/gists/{token}"  # wrong url, fix
-        url = f"https://api.telegram.org/bot{token}/sendMessage"
-        requests.post(url, data={"chat_id": chat_id, "text": message})
-
-# GIST MEMORY FUNCTIONS
-@st.cache_data(ttl=5)
-def load_attacks():
-    gist_id = st.secrets["GIST_ID"]
-    token = st.secrets["GITHUB_TOKEN"]
-    url = f"https://api.github.com/gists/{gist_id}"
-    headers = {"Authorization": f"token {token}"}
-    try:
-        r = requests.get(url, headers=headers)
-        files = r.json()["files"]
-        if "attacks.json" in files:
-            content = files["attacks.json"]["content"]
-            return json.loads(content)
-    except:
-        pass
-    return []
-
-def save_attack(ip, ua, path, method):
-    gist_id = st.secrets["GIST_ID"]
-    token = st.secrets["GITHUB_TOKEN"]
-    attacks = load_attacks()
-    attacks.append({"ip": ip, "ua": ua, "path": path, "method": method, "time": str(datetime.now())})
-    data = {"files": {"attacks.json": {"content": json.dumps(attacks, indent=2)}}}
-    requests.patch(f"https://api.github.com/gists/{gist_id}", headers={"Authorization": f"token {token}"}, json=data)
-    time.sleep(1)  # Give Gist time to save
     
-    # TELEGRAM BUZZ ON EVERY ATTACK
-    send_telegram(f"🚨 RAVENAI ALERT!\nIP: {ip}\nPath: {path}\nUA: {ua}\nTime: {datetime.now()}")
-
-st.title("🛡️ RavenAI V3.2 - Live Threat Intelligence Dashboard")
-
-api_key = st.sidebar.text_input("Groq API Key", type="password")
-
-col1, col2, col3 = st.columns(3)
-col1.metric("Attacks Trapped", len(load_attacks()))
-col2.metric("Status", "ACTIVE" if api_key else "STANDBY")
-col3.metric("Fake Data Sent", 0)
-
-# HONEYPOT TRAPS
-if st.button("ACTIVATE HONEYPOT", type="primary"):
-    if not api_key:
-        st.error("Paste Groq API Key in sidebar first")
-    else:
-        st.success("HONEYPOT ACTIVE")
+    # SHOW VALUES ON PAGE - REMOVE AFTER FIX
+    st.write(f"**DEBUG: Token** = `{token[:20]}...`")
+    st.write(f"**DEBUG: ChatID** = `{chat_id}`")
+    
+    if not token or not chat_id:
+        st.error("❌ DEBUG: Token or ChatID is EMPTY - Check Secrets")
+        return False
+    
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    try:
+        r = requests.post(url, data={"chat_id": chat_id, "text": message}, timeout=10)
+        st.write(f"**DEBUG: Status** = `{r.status_code}`")
+        st.write(f"**DEBUG: Response** = `{r.text}`")
         
-        # SIMULATE 3 ATTACKS
-        for i in range(3):
-            save_attack(f"192.168.1.{100+i}", "Hacker-Bot", f"/trap/{i}", "GET")
-            st.warning(f"🚨 ATTACK {i+2} TRAPPED")
+        if r.status_code == 200:
+            st.success("✅ Telegram sent!")
+            return True
+        else:
+            st.error(f"❌ Telegram failed: {r.text}")
+            return False
+    except Exception as e:
+        st.error(f"❌ Exception: {e}")
+        return False
+
+# HONEYPOT LOGIC
+if 'trapped' not in st.session_state:
+    st.session_state.trapped = []
+
+col1, col2 = st.columns([2, 1])
+
+with col1:
+    st.subheader(f"Attacks Trapped: {len(st.session_state.trapped)}")
+    st.metric("Status", "STANDBY")
+    
+    if st.button("🚨 ACTIVATE HONEYPOT", type="primary"):
+        fake_ip = f"192.168.{len(st.session_state.trapped)+1}.100"
+        fake_ua = "Hacker-Bot/3.0"
+        fake_path = f"/trap/{len(st.session_state.trapped)+2}"
+        
+        attack = {
+            "time": datetime.now().strftime("%H:%M:%S"),
+            "ip": fake_ip,
+            "ua": fake_ua,
+            "path": fake_path
+        }
+        st.session_state.trapped.append(attack)
+        
+        # SEND TELEGRAM ALERT + SHOW DEBUG
+        msg = f"🚨 RAVENAI ALERT\nIP: {fake_ip}\nPath: {fake_path}\nTime: {attack['time']}"
+        send_telegram(msg)
         
         st.rerun()
 
-attacks = load_attacks()
-if attacks:
-    df = pd.DataFrame(attacks)
-    st.dataframe(df, use_container_width=True)
-    st.download_button("Download Evidence", df.to_csv(index=False), "attacks.csv")
-else:
-    st.info("No attacks yet. Click ACTIVATE HONEYPOT to test.")
+with col2:
+    st.subheader("Recent Traps")
+    if st.session_state.trapped:
+        for t in st.session_state.trapped[-5:]:
+            st.code(f"{t['time']} | {t['ip']} | {t['path']}")
+    else:
+        st.info("No attacks yet. Hit ACTIVATE HONEYPOT to test.")
+
+st.divider()
+st.caption("Test: Open /admin URL after clicking button above")
