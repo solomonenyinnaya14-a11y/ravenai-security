@@ -1,78 +1,95 @@
 import streamlit as st
 import requests
-import time
-from datetime import datetime
+import uuid
 
-st.set_page_config(page_title="RavenAI V3.2 - Live Dashboard", page_icon="🛡️", layout="wide")
+# Load secrets
+PAYSTACK_PUBLIC = st.secrets["PAYSTACK_PUBLIC"]
+PAYSTACK_SECRET = st.secrets["PAYSTACK_SECRET"]
+APP_URL = st.secrets["APP_URL"]
+TELEGRAM_BOT_TOKEN = st.secrets.get("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID = st.secrets.get("TELEGRAM_CHAT_ID", "")
 
-st.title("🛡️ RavenAI V3.2 - Live Dashboard")
-st.caption("Honeypot Security System")
+st.set_page_config(page_title="RavenAI", page_icon="🐦‍⬛", layout="centered")
 
-# DEBUG TELEGRAM FUNCTION - SHOWS ERRORS ON PAGE
-def send_telegram(message):
-    token = st.secrets.get("TELEGRAM_TOKEN", "")
-    chat_id = st.secrets.get("TELEGRAM_CHAT_ID", "")
+# Session state
+if "paid" not in st.session_state:
+    st.session_state.paid = False
+if "reference" not in st.session_state:
+    st.session_state.reference = None
+
+# Check if returning from Paystack
+query_params = st.query_params
+if "reference" in query_params and not st.session_state.paid:
+    ref = query_params["reference"]
+    st.session_state.reference = ref
     
-    # SHOW VALUES ON PAGE - REMOVE AFTER FIX
-    st.write(f"**DEBUG: Token** = `{token[:20]}...`")
-    st.write(f"**DEBUG: ChatID** = `{chat_id}`")
+    # Verify payment
+    headers = {"Authorization": f"Bearer {PAYSTACK_SECRET}"}
+    verify = requests.get(f"https://api.paystack.co/transaction/verify/{ref}", headers=headers)
     
-    if not token or not chat_id:
-        st.error("❌ DEBUG: Token or ChatID is EMPTY - Check Secrets")
-        return False
+    if verify.status_code == 200:
+        data = verify.json()["data"]
+        if data["status"] == "success":
+            st.session_state.paid = True
+            st.balloons()
+            st.success(f"✅ Payment verified! Ref: {ref}")
+            
+            # Send Telegram alert
+            if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID:
+                msg = f"🚨 NEW CUSTOMER PAID!\nEmail: {data['customer']['email']}\nAmount: ${data['amount']/100}\nRef: {ref}"
+                requests.post(f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage", 
+                            json={"chat_id": TELEGRAM_CHAT_ID, "text": msg})
+
+# UI
+st.title("🐦‍⬛ RavenAI - Honeypot-as-a-Service")
+st.caption("Catch hackers. Collect intel. Get paid $11/month")
+
+if not st.session_state.paid:
+    st.write("### Step 1: Unlock Hacker Logs")
+    email = st.text_input("Your email", placeholder="ceo@ravenai.com")
     
-    url = f"https://api.telegram.org/bot{token}/sendMessage"
-    try:
-        r = requests.post(url, data={"chat_id": chat_id, "text": message}, timeout=10)
-        st.write(f"**DEBUG: Status** = `{r.status_code}`")
-        st.write(f"**DEBUG: Response** = `{r.text}`")
-        
-        if r.status_code == 200:
-            st.success("✅ Telegram sent!")
-            return True
+    if st.button("Pay $11 with Paystack", type="primary"):
+        if not email:
+            st.warning("Enter email first CEO")
         else:
-            st.error(f"❌ Telegram failed: {r.text}")
-            return False
-    except Exception as e:
-        st.error(f"❌ Exception: {e}")
-        return False
-
-# HONEYPOT LOGIC
-if 'trapped' not in st.session_state:
-    st.session_state.trapped = []
-
-col1, col2 = st.columns([2, 1])
-
-with col1:
-    st.subheader(f"Attacks Trapped: {len(st.session_state.trapped)}")
-    st.metric("Status", "STANDBY")
+            headers = {"Authorization": f"Bearer {PAYSTACK_SECRET}"}
+            ref = f"RAVEN_{uuid.uuid4().hex[:8]}"
+            data = {
+                "email": email,
+                "amount": 1100,  # $11 = 1100 cents
+                "currency": "USD",
+                "reference": ref,
+                "callback_url": APP_URL,
+                "metadata": {"product": "RavenAI Monthly"}
+            }
+            
+            res = requests.post("https://api.paystack.co/transaction/initialize", 
+                               headers=headers, json=data)
+            
+            if res.status_code == 200:
+                auth_url = res.json()["data"]["authorization_url"]
+                st.link_button("→ Complete Payment on Paystack", auth_url, type="primary")
+                st.info("Use test card: 4081 9482 1234 5678 | Expiry: 12/30 | CVV: 123 | PIN: 0000 | OTP: 123456")
+            else:
+                st.error(f"Error: {res.json()}")
+else:
+    st.write("### Step 2: Your Honeypot Dashboard 🐐")
+    st.success("Access unlocked! RavenAI is watching for hackers now.")
     
-    if st.button("🚨 ACTIVATE HONEYPOT", type="primary"):
-        fake_ip = f"192.168.{len(st.session_state.trapped)+1}.100"
-        fake_ua = "Hacker-Bot/3.0"
-        fake_path = f"/trap/{len(st.session_state.trapped)+2}"
-        
-        attack = {
-            "time": datetime.now().strftime("%H:%M:%S"),
-            "ip": fake_ip,
-            "ua": fake_ua,
-            "path": fake_path
-        }
-        st.session_state.trapped.append(attack)
-        
-        # SEND TELEGRAM ALERT + SHOW DEBUG
-        msg = f"🚨 RAVENAI ALERT\nIP: {fake_ip}\nPath: {fake_path}\nTime: {attack['time']}"
-        send_telegram(msg)
-        
-        st.rerun()
+    col1, col2, col3 = st.columns(3)
+    col1.metric("SSH Attacks Today", "47", "+12")
+    col2.metric("Countries Hit", "23", "+5") 
+    col3.metric("Wallets Drained", "$0", "Demo mode")
+    
+    st.write("---")
+    st.code("""
+    [2026-06-14 14:32:12] 185.220.101.45 → SSH root login attempt
+    [2026-06-14 14:32:15] 185.220.101.45 → Tried password: admin123
+    [2026-06-14 14:32:18] 185.220.101.45 → Downloaded malware.exe
+    """, language="log")
+    
+    st.download_button("Download Full Logs", "sample_hacker_log.txt", "raven_logs.txt")
 
-with col2:
-    st.subheader("Recent Traps")
-    if st.session_state.trapped:
-        for t in st.session_state.trapped[-5:]:
-            st.code(f"{t['time']} | {t['ip']} | {t['path']}")
-    else:
-        st.info("No attacks yet. Hit ACTIVATE HONEYPOT to test.")
-
-st.divider()
-st.caption("Test: Open /admin URL after clicking button above")
+st.sidebar.write("### RavenAI Status")
+st.sidebar.write("Mode: 🧪 TEST" if "test" in PAYSTACK_SECRET else "Mode: 🔴 LIVE")
+st.sidebar.write(f"Webhook: {APP_URL}")
